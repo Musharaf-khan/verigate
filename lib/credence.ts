@@ -10,7 +10,11 @@ async function call(path:string, payload?:unknown, accessToken?:string, origin?:
  if(origin)headers.Origin=origin;
  const response=await fetch(`${base}${path}`,{method:'POST',headers,body:payload===undefined?undefined:JSON.stringify(payload),cache:'no-store',signal:AbortSignal.timeout(18000)});
  const body=await response.json().catch(()=>({error:'INVALID_RESPONSE'}));
- if(!response.ok)throw new Error(`Credence API ${response.status}: ${String(body.error||body.message||'Request failed').slice(0,130)}`);
+ if(!response.ok){
+  const code=String(body.error||body.message||'Request failed').slice(0,130);
+  if(code==='DOMAIN_MISMATCH')throw new Error(`This Credence license is registered for a different web address. Open the site at ${process.env.CREDENCE_ORIGIN||'the registered origin'}.`);
+  throw new Error(`Credence API ${response.status}: ${code}`);
+ }
  return body;
 }
 async function acquire(){
