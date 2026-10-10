@@ -39,9 +39,9 @@ export default function Integration() {
 
   return (
     <>
-      <h1>Integration</h1>
+      <h1>Technical details</h1>
       <p className="lead">
-        Run the real Credence ID calls from the VeriGate server and see exactly what the wallet is asked for.
+        For developers and reviewers. Run the real Credence ID calls from the VeriGate server and see exactly what the phone is asked for.
       </p>
 
       <section className="card">

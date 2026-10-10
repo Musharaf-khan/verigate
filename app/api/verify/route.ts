@@ -34,11 +34,11 @@ export async function POST(request:Request){
   const {sessionId,data}=await request.json();
   if(typeof sessionId!=='string'||!sessionId||sessionId.length>128||typeof data!=='string'||!data||data.length>1000000)return NextResponse.json({error:'Invalid wallet response.'},{status:400});
   const r=await verify(sessionId,data);
-  if(r.cancelled)return NextResponse.json({status:'cancelled',verdict:'unknown',mode:'live',message:'The wallet presentation was cancelled.'});
-  if(r.res!==true)return NextResponse.json({status:'failed',verdict:'unknown',mode:'live',message:'The credential could not be verified. Signature or issuer trust checks did not pass.'});
+  if(r.cancelled)return NextResponse.json({status:'cancelled',verdict:'unknown',mode:'live',message:'The request was cancelled on the phone. Nothing was shared.'});
+  if(r.res!==true)return NextResponse.json({status:'failed',verdict:'unknown',mode:'live',message:'We could not confirm this ID is real. Please check age another way, such as a physical ID card.'});
   let details:unknown={};try{details=typeof r.resDetails==='string'?JSON.parse(r.resDetails):r.resDetails}catch{}
   // Only return a decision. Never expose date of birth or other identity claims to the browser.
   const verdict=decide(identities(details));
-  return NextResponse.json({status:verdict==='unknown'?'needs_review':'verified',verdict,issuerVerified:true,mode:'live',message:verdict==='unknown'?'The credential is authentic, but it did not include an age attribute. Check that the Credence profile requests age_over_21 or birth_date.':'Credential verified by Credence ID.'});
+  return NextResponse.json({status:verdict==='unknown'?'needs_review':'verified',verdict,issuerVerified:true,mode:'live',message:verdict==='unknown'?'The ID is real, but it did not include an age. Please check age another way, such as a physical ID card.':'The ID was confirmed. No other personal details were shared.'});
  }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Verification failed.'},{status:502})}
 }

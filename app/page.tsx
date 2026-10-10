@@ -32,22 +32,17 @@ type Session = {
 const SESSION_TTL_MS = 2 * 60 * 1000;
 
 function walletErrorMessage(err: unknown): string {
-  if (err instanceof DOMException) {
-    switch (err.name) {
-      case 'AbortError':
-        return 'The wallet request was closed before an ID was shared. Use Safari on an iPhone with iOS 26 or later, and keep this page open while Wallet is showing.';
-      case 'NotAllowedError':
-        return 'The request was declined or cancelled in the wallet.';
-      case 'NotSupportedError':
-        return 'This browser does not support digital ID requests.';
-      case 'TypeError':
-        return 'The browser rejected the request format.';
-      default:
-        return `${err.name}: ${err.message}`;
-    }
+  const name = err instanceof DOMException ? err.name : err instanceof TypeError ? 'TypeError' : '';
+  switch (name) {
+    case 'AbortError':
+      return 'The ID request closed before anything was shared. Please try again, and keep this page open until your phone asks you to share.';
+    case 'NotAllowedError':
+      return 'The request was cancelled on the phone. Nothing was shared. You can try again.';
+    case 'NotSupportedError':
+    case 'TypeError':
+      return 'This phone or browser cannot share an ID yet. Use an iPhone with Safari, updated to iOS 26 or later.';
   }
-  if (err instanceof TypeError) return 'The browser rejected the request format.';
-  return err instanceof Error ? err.message : 'Something went wrong.';
+  return err instanceof Error ? err.message : 'Something went wrong. Please try again.';
 }
 
 export default function Home() {
@@ -87,7 +82,7 @@ export default function Home() {
       setSession({ ...body, preparedAt: Date.now() });
     } catch (e) {
       setSession(null);
-      setErrorTitle('Could not prepare the request');
+      setErrorTitle('We couldn\'t get ready');
       setError(e instanceof Error ? e.message : 'Could not prepare the verification request.');
     } finally {
       preparingRef.current = false;
@@ -120,7 +115,7 @@ export default function Home() {
       status: scenario === 'unknown' ? 'needs_review' : 'verified',
       verdict: scenario,
       mode: 'demo',
-      message: 'Sample result. No real credential was checked.',
+      message: 'This was a practice run. No real ID was checked.',
     });
     record(scenario, 'Demo');
     setWorking(false);
@@ -146,7 +141,7 @@ export default function Home() {
         throw Error(walletErrorMessage(err));
       }
 
-      if (!credential || credential.data == null) throw Error('No credential was returned by the wallet.');
+      if (!credential || credential.data == null) throw Error('No ID was shared. Please try again.');
       // The spec says data is a string, but Safari returns an object. Credence accepts either serialized.
       const data = typeof credential.data === 'string' ? credential.data : JSON.stringify(credential.data);
 
@@ -160,7 +155,7 @@ export default function Home() {
       setResult(body);
       record(body.verdict || 'unknown', 'Wallet');
     } catch (e) {
-      setErrorTitle('Verification did not complete');
+      setErrorTitle('The check didn\'t finish');
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
       setWorking(false);
@@ -175,113 +170,126 @@ export default function Home() {
 
   let liveStatus: string;
   let liveReady = false;
-  if (configured === null) liveStatus = 'Checking configuration…';
-  else if (!configured) liveStatus = 'Credence ID credentials are not configured on the server.';
-  else if (!supported) liveStatus = 'This browser cannot request digital IDs. Open this page in Safari on iOS 26 or later.';
-  else if (preparing) liveStatus = 'Preparing request…';
+  if (configured === null) liveStatus = 'Getting ready…';
+  else if (!configured) liveStatus = 'This service is not set up yet. Please try Practice instead.';
+  else if (!supported) liveStatus = 'This browser can\'t share an ID. Open this page in Safari on an iPhone (iOS 26 or later), or try Practice.';
+  else if (preparing) liveStatus = 'Getting ready… this takes a few seconds.';
   else if (session) {
-    liveStatus = 'Ready.';
+    liveStatus = 'Ready. Tap the button below.';
     liveReady = true;
-  } else liveStatus = 'Request not ready.';
+  } else liveStatus = 'Getting ready…';
 
   const resultTitle = !result
     ? ''
     : result.verdict === 'eligible'
-      ? 'Age 21+ confirmed'
+      ? 'Yes, 21 or older'
       : result.verdict === 'ineligible'
-        ? 'Under 21'
+        ? 'No, under 21'
         : result.status === 'cancelled'
           ? 'Cancelled'
           : result.status === 'failed'
-            ? 'Not verified'
-            : 'Needs manual review';
+            ? 'ID could not be confirmed'
+            : 'Please check another way';
 
   const resultTone = result?.verdict === 'eligible' ? 'ok' : result?.verdict === 'ineligible' || result?.status === 'failed' ? 'bad' : 'warn';
+  const resultIcon = resultTone === 'ok' ? '✓' : resultTone === 'bad' ? '✕' : '!';
 
   return (
     <div className="page">
+      <a href="#main" className="skip">Skip to content</a>
       <header className="topbar">
         <div className="wrap topbar-inner">
           <span className="wordmark">VeriGate</span>
-          <nav>
-            <button className={tab === 'verify' ? 'on' : ''} onClick={() => setTab('verify')}>Verify</button>
-            <button className={tab === 'activity' ? 'on' : ''} onClick={() => setTab('activity')}>
-              Activity{history.length ? ` (${history.length})` : ''}
+          <nav aria-label="Main">
+            <button aria-current={tab === 'verify' ? 'page' : undefined} className={tab === 'verify' ? 'on' : ''} onClick={() => setTab('verify')}>Check age</button>
+            <button aria-current={tab === 'activity' ? 'page' : undefined} className={tab === 'activity' ? 'on' : ''} onClick={() => setTab('activity')}>
+              History{history.length ? ` (${history.length})` : ''}
             </button>
-            <button className={tab === 'integration' ? 'on' : ''} onClick={() => setTab('integration')}>Integration</button>
+            <button aria-current={tab === 'integration' ? 'page' : undefined} className={tab === 'integration' ? 'on' : ''} onClick={() => setTab('integration')}>Technical</button>
           </nav>
         </div>
       </header>
 
-      <main className="wrap main">
+      <main id="main" className="wrap main">
         {tab === 'verify' && (
           <>
-            <h1>Age verification</h1>
-            <p className="lead">Confirm a customer is 21 or older with the mobile ID in their digital wallet. Only the yes or no result is shown.</p>
+            <h1>Check age with a phone ID</h1>
+            <p className="lead">Show you are 21 or older using the driver’s license on your phone. We only see “yes” or “no”, never your birthday, address or photo.</p>
 
             <div className="grid">
               <section className="card">
-                <div className="segmented" role="tablist">
-                  <button role="tab" aria-selected={mode === 'live'} className={mode === 'live' ? 'on' : ''} onClick={() => switchMode('live')}>
-                    Wallet ID
+                <p className="choose" id="mode-label">How do you want to check?</p>
+                <div className="choice" role="radiogroup" aria-labelledby="mode-label">
+                  <button role="radio" aria-checked={mode === 'live'} className={mode === 'live' ? 'on' : ''} onClick={() => switchMode('live')}>
+                    <strong>Use my phone ID</strong>
+                    <span>Real check with your phone</span>
                   </button>
-                  <button role="tab" aria-selected={mode === 'demo'} className={mode === 'demo' ? 'on' : ''} onClick={() => switchMode('demo')}>
-                    Demo
+                  <button role="radio" aria-checked={mode === 'demo'} className={mode === 'demo' ? 'on' : ''} onClick={() => switchMode('demo')}>
+                    <strong>Practice</strong>
+                    <span>See how it works, no ID needed</span>
                   </button>
                 </div>
 
                 {mode === 'live' ? (
                   <>
-                    <p className="hint">
-                      The customer approves the request in Apple Wallet or another compatible wallet. Credence ID checks the issuer signature.
-                    </p>
-                    <p className={'status ' + (liveReady ? 'ready' : '')}>{liveStatus}</p>
+                    <ol className="howto">
+                      <li>Tap <b>Check my age</b>.</li>
+                      <li>Your phone asks if you want to share. Check the details, then confirm.</li>
+                      <li>Your answer appears on this screen.</li>
+                    </ol>
+                    <p className={'status ' + (liveReady ? 'ready' : '')} aria-live="polite">{liveStatus}</p>
                     <button className="primary" disabled={!liveReady || working} onClick={runWallet}>
-                      {working ? 'Waiting for wallet…' : 'Verify with digital wallet'}
+                      {working ? 'Waiting for your phone…' : 'Check my age'}
                     </button>
                   </>
                 ) : (
                   <>
-                    <label htmlFor="scenario" className="hint">Sample outcome</label>
+                    <label htmlFor="scenario" className="field-label">Pick a practice answer</label>
                     <select id="scenario" value={scenario} onChange={(e) => setScenario(e.target.value as Verdict)}>
-                      <option value="eligible">21 or older</option>
-                      <option value="ineligible">Under 21</option>
-                      <option value="unknown">Birth date missing</option>
+                      <option value="eligible">Person is 21 or older</option>
+                      <option value="ineligible">Person is under 21</option>
+                      <option value="unknown">Birthday is missing from the ID</option>
                     </select>
                     <button className="primary" disabled={working} onClick={runDemo}>
-                      {working ? 'Running…' : 'Run demo'}
+                      {working ? 'Checking…' : 'Start practice'}
                     </button>
                   </>
                 )}
 
                 {error && (
                   <div className="notice bad" role="alert">
-                    <strong>{errorTitle}</strong>
-                    <p>{error}</p>
-                    {mode === 'live' && !session && !preparing && configured && (
-                      <button className="link" onClick={() => { setError(''); prepare(); }}>Try again</button>
-                    )}
+                    <span className="big-icon" aria-hidden="true">!</span>
+                    <div>
+                      <strong>{errorTitle}</strong>
+                      <p>{error}</p>
+                      {mode === 'live' && !session && !preparing && configured && (
+                        <button className="secondary" onClick={() => { setError(''); prepare(); }}>Try again</button>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {result && (
-                  <div className={'notice ' + resultTone} role="status">
-                    <strong>{resultTitle}</strong>
-                    <p>{result.message}</p>
-                    <small>{result.mode === 'live' ? (result.issuerVerified ? 'Verified credential' : 'Live request') : 'Demo result'}</small>
+                  <div className={'notice ' + resultTone} role="status" aria-live="polite">
+                    <span className="big-icon" aria-hidden="true">{resultIcon}</span>
+                    <div>
+                      <strong>{resultTitle}</strong>
+                      <p>{result.message}</p>
+                      <small>{result.mode === 'live' ? (result.issuerVerified ? 'Real ID, confirmed by the issuing state' : 'Real check') : 'Practice result'}</small>
+                    </div>
                   </div>
                 )}
               </section>
 
               <aside className="card plain">
-                <h2>How it works</h2>
-                <ol>
-                  <li>VeriGate prepares a signed request with Credence ID.</li>
-                  <li>The customer shares their mobile ID from their wallet.</li>
-                  <li>Credence ID verifies the credential and its issuer.</li>
-                  <li>VeriGate shows whether the customer is 21 or older.</li>
-                </ol>
-                <p className="fine">Birth dates and other personal details are never sent to the browser or stored.</p>
+                <h2>Good to know</h2>
+                <ul className="facts-list">
+                  <li><b>Private.</b> We never see or keep your birthday, address or photo.</li>
+                  <li><b>Safe.</b> Your phone checks with you before sharing anything.</li>
+                  <li><b>Real.</b> The ID is confirmed with the state that issued it.</li>
+                  <li><b>Quick.</b> It takes about 10 seconds.</li>
+                </ul>
+                <p className="fine">Works with a driver’s license or state ID added to Apple Wallet on an iPhone with iOS 26 or later.</p>
               </aside>
             </div>
           </>
@@ -289,36 +297,37 @@ export default function Home() {
 
         {tab === 'activity' && (
           <>
-            <h1>Activity</h1>
-            <p className="lead">Checks from this browser session. Nothing is saved after you close the page.</p>
+            <h1>History</h1>
+            <p className="lead">Checks done on this screen. They disappear when you close the page.</p>
             <section className="card">
               {history.length ? (
                 <table>
                   <thead>
                     <tr>
-                      <th>Reference</th>
-                      <th>Type</th>
-                      <th>Result</th>
                       <th>Time</th>
+                      <th>Result</th>
+                      <th>Type</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((x) => (
                       <tr key={x.id}>
-                        <td className="mono">{x.id}</td>
-                        <td>{x.source}</td>
+                        <td>{x.when}</td>
                         <td>
                           <span className={'tag ' + x.verdict}>
-                            {x.verdict === 'eligible' ? '21+' : x.verdict === 'ineligible' ? 'Under 21' : 'Review'}
+                            {x.verdict === 'eligible' ? '✓ 21 or older' : x.verdict === 'ineligible' ? '✕ Under 21' : '! Check another way'}
                           </span>
                         </td>
-                        <td>{x.when}</td>
+                        <td>{x.source === 'Demo' ? 'Practice' : 'Phone ID'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               ) : (
-                <p className="empty">No checks yet.</p>
+                <div className="empty">
+                  <p>No checks yet.</p>
+                  <button className="secondary" onClick={() => setTab('verify')}>Check an age</button>
+                </div>
               )}
             </section>
           </>
