@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Integration from './Integration';
 
 type Verdict = 'eligible' | 'ineligible' | 'unknown';
 type Source = 'Demo' | 'Wallet';
@@ -50,7 +51,7 @@ function walletErrorMessage(err: unknown): string {
 }
 
 export default function Home() {
-  const [tab, setTab] = useState<'verify' | 'activity' | 'about'>('verify');
+  const [tab, setTab] = useState<'verify' | 'activity' | 'integration'>('verify');
   const [mode, setMode] = useState<'live' | 'demo'>('live');
   const [scenario, setScenario] = useState<Verdict>('eligible');
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -207,7 +208,7 @@ export default function Home() {
             <button className={tab === 'activity' ? 'on' : ''} onClick={() => setTab('activity')}>
               Activity{history.length ? ` (${history.length})` : ''}
             </button>
-            <button className={tab === 'about' ? 'on' : ''} onClick={() => setTab('about')}>About</button>
+            <button className={tab === 'integration' ? 'on' : ''} onClick={() => setTab('integration')}>Integration</button>
           </nav>
         </div>
       </header>
@@ -323,30 +324,7 @@ export default function Home() {
           </>
         )}
 
-        {tab === 'about' && (
-          <>
-            <h1>About</h1>
-            <p className="lead">How VeriGate connects to the Credence ID Cloud SDK.</p>
-            <section className="card">
-              <dl className="endpoints">
-                <dt>POST /v1/setup</dt>
-                <dd>Activates the license and issues a short-lived access token.</dd>
-                <dt>POST /v1/getDocRequest</dt>
-                <dd>Creates a signed ISO mdoc request and a session ID.</dd>
-                <dt>navigator.credentials.get()</dt>
-                <dd>The browser asks the wallet to present the ID (org-iso-mdoc).</dd>
-                <dt>POST /v1/verifyDocRequest</dt>
-                <dd>Verifies the wallet response. VeriGate returns only the age decision.</dd>
-              </dl>
-              <p className="fine">
-                This is an evaluation build. A production deployment would add authentication, rate limiting, audit storage and a compliance review.{' '}
-                <a href="https://credenceid.com/mobile-id/developer-documentation/integration-guide/" target="_blank" rel="noreferrer">
-                  Credence ID documentation
-                </a>
-              </p>
-            </section>
-          </>
-        )}
+        {tab === 'integration' && <Integration />}
       </main>
 
       <footer className="wrap footer">© 2026 VeriGate</footer>

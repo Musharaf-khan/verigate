@@ -33,3 +33,5 @@ async function acquire(){
 async function getToken(){if(!pending)pending=acquire().finally(()=>{pending=null});return pending}
 export async function initiate(){const accessToken=await getToken();return call('/v1/getDocRequest',undefined,accessToken)}
 export async function verify(sessionId:string,data:string){const accessToken=await getToken();return call('/v1/verifyDocRequest',{sessionId,data},accessToken)}
+// Activates the license (or reuses a live token) and reports status without exposing the token.
+export async function licenseStatus(){const reused=!!token&&token.expiresAt>Date.now()+60_000;await getToken();return {reused,expiresInSec:Math.max(0,Math.round(((token?.expiresAt??Date.now())-Date.now())/1000)),origin:process.env.CREDENCE_ORIGIN||''}}
