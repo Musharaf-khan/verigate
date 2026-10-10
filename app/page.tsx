@@ -44,6 +44,14 @@ export default function Home() {
   const [scenario, setScenario] = useState<'eligible' | 'ineligible' | 'unknown'>('eligible');
   const [configured, setConfigured] = useState(false);
 
+  const [readySession, setReadySession] = useState<{
+    sessionId: string;
+    dcRequest: {
+      deviceRequest: string;
+      encryptionInfo: string;
+    };
+  } | null>(null);
+
   useEffect(() => {
     fetch('/api/health')
       .then((r) => r.json())
@@ -94,9 +102,31 @@ export default function Home() {
         throw Error('This browser does not expose the Credentials API. Use Chrome 141+ or supported Safari.');
       }
 
-      const start = await fetch('/api/start', { method: 'POST', cache: 'no-store' });
-      const session = await start.json();
-      if (!start.ok) throw Error(session.error || 'Cloud SDK session initialization failed.');
+      if (!readySession) {
+        const start = await fetch('/api/start', {
+          method: 'POST',
+          cache: 'no-store',
+        });
+
+        const session = await start.json();
+
+        if (!start.ok) {
+          throw Error(session.error || 'Could not prepare verification.');
+        }
+
+        if (
+          !session.sessionId ||
+          typeof session.dcRequest?.deviceRequest !== 'string' ||
+          typeof session.dcRequest?.encryptionInfo !== 'string'
+        ) {
+          throw Error('Credence ID returned an incomplete document request.');
+        }
+
+        setReadySession(session);
+        return;
+      }
+
+      const session = readySession;
 
       // Digital Credentials API is newer than current TypeScript's CredentialRequestOptions definition.
       const options = {
@@ -148,7 +178,9 @@ export default function Home() {
 
       setResult(data);
       record(data.verdict || 'unknown', data.status, 'CREDENCE CLOUD SDK');
+      setReadySession(null);
     } catch (e) {
+      setReadySession(null);
       setError(e instanceof Error ? e.message : 'Unknown failure.');
     } finally {
       setWorking(false);
@@ -158,6 +190,9 @@ export default function Home() {
   const verified = history.filter(
     (x) => x.source === 'CREDENCE CLOUD SDK' && x.status === 'verified',
   ).length;
+
+  const currentTabLabel =
+    tab === 'verify' ? 'Verification studio' : tab === 'dashboard' ? 'Dashboard' : 'Integration overview';
 
   return (
     <div className="shell">
@@ -172,13 +207,13 @@ export default function Home() {
           </div>
         </div>
         <div className="side-label">WORKSPACE</div>
-        <button className={'nav ' + (tab === 'verify' ? 'active' : '')} onClick={() => setTab('verify')}>
+        <button className={`nav ${tab === 'verify' ? 'active' : ''}`} onClick={() => setTab('verify')}>
           <ScanFace size={18} /> Verification studio <ChevronRight size={16} className="arrow" />
         </button>
-        <button className={'nav ' + (tab === 'dashboard' ? 'active' : '')} onClick={() => setTab('dashboard')}>
+        <button className={`nav ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')}>
           <LayoutDashboard size={18} /> Dashboard
         </button>
-        <button className={'nav ' + (tab === 'architecture' ? 'active' : '')} onClick={() => setTab('architecture')}>
+        <button className={`nav ${tab === 'architecture' ? 'active' : ''}`} onClick={() => setTab('architecture')}>
           <Fingerprint size={18} /> Integration
         </button>
         <div className="side-bottom">
@@ -193,7 +228,7 @@ export default function Home() {
       <main className="main">
         <header>
           <div className="breadcrumbs">
-            Workspace <ChevronRight size={13} /> <strong>{tab === 'verify' ? 'Verification studio' : tab === 'dashboard' ? 'Dashboard' : 'Integration overview'}</strong>
+            Workspace <ChevronRight size={13} /> <strong>{currentTabLabel}</strong>
           </div>
           <div className="header-right">
             <span className="secure">
@@ -272,6 +307,7 @@ export default function Home() {
                         setMode('simulation');
                         setResult(null);
                         setError('');
+                        setReadySession(null);
                       }}
                       className={'mode ' + (mode === 'simulation' ? 'selected' : '')}
                     >
@@ -287,6 +323,7 @@ export default function Home() {
                         setMode('live');
                         setResult(null);
                         setError('');
+                        setReadySession(null);
                       }}
                       className={'mode ' + (mode === 'live' ? 'selected' : '')}
                     >
@@ -335,7 +372,11 @@ export default function Home() {
                       </>
                     ) : (
                       <>
-                        {mode === 'live' ? 'Verify with digital wallet' : 'Run demo verification'}
+                        {mode === 'live'
+                          ? readySession
+                            ? 'Present my Apple Wallet ID'
+                            : 'Prepare verification'
+                          : 'Run demo verification'}
                         <ArrowRight size={18} />
                       </>
                     )}
