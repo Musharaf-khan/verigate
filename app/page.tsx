@@ -284,12 +284,11 @@ export default function Home() {
               <aside className="card plain">
                 <h2>Good to know</h2>
                 <ul className="facts-list">
-                  <li><b>Private.</b> We never see or keep your birthday, address or photo.</li>
-                  <li><b>Safe.</b> Your phone checks with you before sharing anything.</li>
-                  <li><b>Real.</b> The ID is confirmed with the state that issued it.</li>
-                  <li><b>Quick.</b> It takes about 10 seconds.</li>
+                  <li><b>Private.</b> Staff only see yes or no. Your birthday, address and photo aren’t shown or saved.</li>
+                  <li><b>Your choice.</b> Your phone asks you before sharing anything.</li>
+                  <li><b>Checked.</b> Credence ID checks that the ID came from the state that issued it.</li>
                 </ul>
-                <p className="fine">Works with a driver’s license or state ID added to Apple Wallet on an iPhone with iOS 26 or later.</p>
+                <p className="fine">Real phone ID checks are still being set up with Apple. Practice mode works today.</p>
               </aside>
             </div>
           </>

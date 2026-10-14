@@ -113,11 +113,14 @@ export default function Integration() {
 
           <section className="card">
             <div className="row">
-              <h2>Go-live checklist</h2>
+              <h2>Development self-check</h2>
               <span className="count">
-                {passed} of {s.checks.length} ready
+                {passed} of {s.checks.length} passing
               </span>
             </div>
+            <p className="hint flush">
+              This reads what’s inside the request. It’s a quick check while building, not an Apple approval, and it doesn’t prove a wallet will accept the request.
+            </p>
             <ul className="checklist">
               {s.checks.map((c) => (
                 <li key={c.label}>

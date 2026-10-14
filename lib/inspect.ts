@@ -74,35 +74,40 @@ export function summarizeRequest(dcRequest: { deviceRequest: string; encryptionI
   const asksAge = mdlElements.some((e) => e === 'age_over_21' || e === 'birth_date');
   const appleSigned = !!signer && /apple/i.test(signer.issuer);
 
+  const extra = mdlElements.filter((e) => e !== 'age_over_21' && e !== 'birth_date');
+  const onlyAge = asksAge && extra.length === 0;
+
+  // A development self-check of what the request contains. It does not verify the signature
+  // or Apple's trust chain, and it can't prove a wallet will accept the request.
   const checks: Check[] = [
     {
-      label: 'Request is signed by the verifier',
+      label: 'Request has a signature',
       ok: !!signer,
-      detail: signer ? `Signed with ${signer.algorithm} by ${signer.subject}.` : 'No reader authentication found.',
+      detail: signer ? `Signature found: ${signer.algorithm}, from ${signer.subject}.` : 'No signature found in the request.',
     },
     {
-      label: 'Encrypted response channel',
+      label: 'Reply will be encrypted',
       ok: !!encryption && encryption.nonceBytes > 0,
-      detail: encryption ? `Wallet encrypts its reply to a fresh ${encryption.curve} key with a ${encryption.nonceBytes}-byte nonce.` : 'Missing encryption info.',
+      detail: encryption ? `Encryption key and nonce are included (${encryption.curve}, ${encryption.nonceBytes}-byte nonce).` : 'No encryption details found.',
     },
     {
-      label: 'Requests the age attribute',
-      ok: asksAge,
-      detail: asksAge
-        ? `Requests ${mdlElements.join(', ')} from the mobile driver's licence.`
-        : `Requests ${mdlElements.join(', ') || 'no mDL elements'}. Select a profile that requests age_over_21.`,
+      label: 'Asks only for age',
+      ok: onlyAge,
+      detail: onlyAge
+        ? `Asks only for ${mdlElements.join(', ')}.`
+        : `Right now it asks for ${mdlElements.join(', ') || 'no license fields'}. Use a Credence profile that asks only for age_over_21.`,
     },
     {
-      label: 'Single document request',
+      label: 'Asks for one document',
       ok: documents.length === 1,
-      detail: documents.length === 1 ? 'One document type requested.' : `Asks for ${documents.length} documents (${documents.map((d) => d.docType).join(' + ')}). Credence does not yet support multi-document profiles.`,
+      detail: documents.length === 1 ? 'Asks for one document.' : `Right now it asks for ${documents.length} (${documents.map((d) => d.docType).join(' + ')}). Credence doesn’t support multi-document profiles yet.`,
     },
     {
-      label: 'Signer trusted by Apple Wallet',
+      label: 'Signed with an Apple-issued certificate',
       ok: appleSigned,
       detail: appleSigned
-        ? 'Certificate issued through Apple Business.'
-        : `Issued by ${signer?.issuer ?? 'unknown'}. Apple Wallet needs a certificate issued through Apple Business for this domain.`,
+        ? 'The certificate comes from Apple Business.'
+        : `Right now it comes from ${signer?.issuer ?? 'an unknown issuer'}. Apple Wallet needs a certificate from Apple Business and a verified domain.`,
     },
   ];
 
