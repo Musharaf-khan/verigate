@@ -1,4 +1,4 @@
-# VeriGate — Credence ID Solutions Engineer prototype
+# VeriGate - Credence ID Solutions Engineer prototype
 
 Digital age-eligibility verification using Credence ID Cloud SDK (Flow A: Digital Credentials API / ISO mdoc) and a clearly segregated **simulation** mode.
 
